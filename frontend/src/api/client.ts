@@ -1,4 +1,13 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
+function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (!configured) {
+    return '/api';
+  }
+  const normalized = configured.replace(/\/+$/, '');
+  return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+}
+
+const API_BASE = resolveApiBase();
 
 export class ApiError extends Error {
   status: number;

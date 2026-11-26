@@ -253,3 +253,28 @@ def test_validation_and_error_handling(client: TestClient) -> None:
     # Non-existent idea returns 404
     assert client.get("/api/ideas/99999").status_code == 404
     assert client.post("/api/ideas/99999/notes", json={"note_content": "Hello"}).status_code == 404
+
+
+def test_production_config_helpers() -> None:
+    from app.database import normalize_database_url
+    from app.main import parse_allowed_origins
+
+    # Default / blank DATABASE_URL falls back to local SQLite
+    assert normalize_database_url(None).startswith("sqlite:///")
+    assert normalize_database_url("   ").startswith("sqlite:///")
+
+    # Postgres URLs normalize to psycopg v3 driver
+    assert (
+        normalize_database_url("postgres://user:pass@ep-cool.neon.tech/neondb?sslmode=require")
+        == "postgresql+psycopg://user:pass@ep-cool.neon.tech/neondb?sslmode=require"
+    )
+    assert (
+        normalize_database_url("postgresql://user:pass@ep-cool.neon.tech/neondb")
+        == "postgresql+psycopg://user:pass@ep-cool.neon.tech/neondb"
+    )
+
+    # CORS origins preserve local defaults and strip trailing slashes on production URLs
+    origins = parse_allowed_origins("https://launchpad-ui.vercel.app/, https://custom.example.com")
+    assert "http://localhost:5173" in origins
+    assert "https://launchpad-ui.vercel.app" in origins
+    assert "https://custom.example.com" in origins

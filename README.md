@@ -199,6 +199,26 @@ npm.cmd run build
 
 ---
 
+## Production Deployment (GitHub + Neon + Render + Vercel)
+
+LaunchPad keeps **SQLite** for zero-setup local development and switches seamlessly to **Neon PostgreSQL** in production via `DATABASE_URL` (because Render's free web service filesystem is ephemeral and resets on restarts/redeploys).
+
+1. **Database (Neon Free PostgreSQL):**
+   - Create a free project at [neon.tech](https://neon.tech) and copy the PostgreSQL `DATABASE_URL`.
+2. **Backend (Render Free Web Service):**
+   - Connect your GitHub repository on [render.com](https://render.com) with **Root Directory** set to `backend` (or deploy using [render.yaml](render.yaml)).
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Environment Variables:**
+     - `DATABASE_URL` = your Neon PostgreSQL connection string
+     - `ALLOWED_ORIGINS` = your deployed Vercel URL (e.g., `https://your-app.vercel.app`)
+3. **Frontend (Vercel):**
+   - Import the same GitHub repository on [vercel.com](https://vercel.com) with **Root Directory** set to `frontend` and **Framework Preset** `Vite`.
+   - **Environment Variable:**
+     - `VITE_API_BASE_URL` = `https://<your-render-service>.onrender.com/api`
+
+---
+
 ## Architecture & Interview Talking Points
 
 - **Why SQLAlchemy + Pydantic instead of raw SQL?** Pydantic validates incoming JSON payloads (rejecting blank strings, invalid statuses, and malformed URLs with `422` errors) before touching the database, while SQLAlchemy prevents SQL injection and keeps schema logic clean.
