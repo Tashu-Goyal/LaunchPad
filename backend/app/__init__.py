@@ -1,0 +1,1 @@
+"""LaunchPad FastAPI backend package."""
