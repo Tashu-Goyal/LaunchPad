@@ -38,8 +38,8 @@ LaunchPad is a full-stack SaaS web application for founders, product managers, a
 ## Technology Stack
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React
-- **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, Uvicorn
-- **Database:** SQLite (`backend/launchpad.db`)
+- **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, Psycopg 3, Uvicorn
+- **Database:** SQLite locally (`backend/launchpad.db`) • Supabase PostgreSQL in production
 - **Testing:** `pytest` + FastAPI `TestClient` (`httpx`), TypeScript compiler (`tsc --noEmit`)
 
 ---
@@ -199,17 +199,21 @@ npm.cmd run build
 
 ---
 
-## Production Deployment (GitHub + Neon + Vercel)
+## Production Deployment (GitHub + Supabase + Vercel)
 
-LaunchPad deploys as a **single Vercel project** (React static build + FastAPI Python serverless API on the same origin) while keeping **SQLite** locally and **Neon free PostgreSQL** for persistent production data:
+LaunchPad deploys as a **single Vercel project** (React static build + FastAPI Python serverless API on the same origin) while keeping **SQLite** locally and **Supabase PostgreSQL** for persistent production data:
 
-1. **Database (Neon Free PostgreSQL):**
-   - Create a free project at [neon.tech](https://neon.tech) and copy the **pooled** PostgreSQL `DATABASE_URL`.
+1. **Database (Supabase Free PostgreSQL):**
+   - Create a free project at [supabase.com](https://supabase.com) and save your database password securely.
+   - Click **Connect** in your Supabase project dashboard and copy the **Transaction pooler** URI (port `6543`, `*.pooler.supabase.com`) — this supports IPv4 connections from Vercel serverless functions.
+   - Replace `[YOUR-PASSWORD]` with your actual database password (never commit this value to Git).
+   - LaunchPad's [database.py](backend/app/database.py) automatically normalizes `postgresql://` to `postgresql+psycopg://`, enforces `sslmode=require`, disables `psycopg` prepared statements (`prepare_threshold=None`) for Supavisor transaction pooling compatibility, and uses `NullPool` on Vercel serverless.
+
 2. **Vercel Single-Project Deployment:**
    - Import the GitHub repository on [vercel.com](https://vercel.com) (keep Root Directory as `./`).
    - [vercel.json](vercel.json) automatically builds `frontend/` into `frontend/dist`, routes `/api/*` to [api/index.py](api/index.py), and serves the React SPA for all other paths.
-   - Add one **Environment Variable** in Vercel:
-     - `DATABASE_URL` = your Neon PostgreSQL connection string
+   - Add one **Environment Variable** in Vercel (**Settings → Environment Variables**):
+     - `DATABASE_URL` = your Supabase Transaction Pooler PostgreSQL connection string
    - Leave `VITE_API_BASE_URL` unset so the frontend uses same-origin `/api/*` requests cleanly.
 
 ---

@@ -256,22 +256,47 @@ def test_validation_and_error_handling(client: TestClient) -> None:
 
 
 def test_production_config_helpers() -> None:
-    from app.database import normalize_database_url
+    from sqlalchemy.pool import NullPool
+
+    from app.database import build_engine_kwargs, normalize_database_url
     from app.main import parse_allowed_origins
 
     # Default / blank DATABASE_URL falls back to local SQLite
-    assert normalize_database_url(None).startswith("sqlite:///")
+    sqlite_url = normalize_database_url(None)
+    assert sqlite_url.startswith("sqlite:///")
     assert normalize_database_url("   ").startswith("sqlite:///")
 
-    # Postgres URLs normalize to psycopg v3 driver
+    # Supabase transaction/session pooler URLs normalize to psycopg v3 + sslmode=require
     assert (
-        normalize_database_url("postgres://user:pass@ep-cool.neon.tech/neondb?sslmode=require")
-        == "postgresql+psycopg://user:pass@ep-cool.neon.tech/neondb?sslmode=require"
+        normalize_database_url(
+            "postgres://postgres.projref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        )
+        == "postgresql+psycopg://postgres.projref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
     )
     assert (
-        normalize_database_url("postgresql://user:pass@ep-cool.neon.tech/neondb")
-        == "postgresql+psycopg://user:pass@ep-cool.neon.tech/neondb"
+        normalize_database_url(
+            "postgresql://postgres.projref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+        )
+        == "postgresql+psycopg://postgres.projref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
     )
+    assert (
+        normalize_database_url("postgresql://postgres:secret@localhost:5432/launchpad")
+        == "postgresql+psycopg://postgres:secret@localhost:5432/launchpad"
+    )
+
+    # Engine kwargs adapt cleanly for SQLite, local Postgres, and Vercel serverless Supabase
+    assert build_engine_kwargs(sqlite_url, is_serverless=False) == {
+        "connect_args": {"check_same_thread": False}
+    }
+    pg_url = "postgresql+psycopg://postgres.projref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    assert build_engine_kwargs(pg_url, is_serverless=True) == {
+        "connect_args": {"prepare_threshold": None},
+        "poolclass": NullPool,
+    }
+    assert build_engine_kwargs(pg_url, is_serverless=False) == {
+        "connect_args": {"prepare_threshold": None},
+        "pool_pre_ping": True,
+    }
 
     # CORS origins preserve local defaults and strip trailing slashes on production URLs
     origins = parse_allowed_origins("https://launchpad-ui.vercel.app/, https://custom.example.com")
