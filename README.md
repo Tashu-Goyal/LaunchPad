@@ -199,23 +199,18 @@ npm.cmd run build
 
 ---
 
-## Production Deployment (GitHub + Neon + Render + Vercel)
+## Production Deployment (GitHub + Neon + Vercel)
 
-LaunchPad keeps **SQLite** for zero-setup local development and switches seamlessly to **Neon PostgreSQL** in production via `DATABASE_URL` (because Render's free web service filesystem is ephemeral and resets on restarts/redeploys).
+LaunchPad deploys as a **single Vercel project** (React static build + FastAPI Python serverless API on the same origin) while keeping **SQLite** locally and **Neon free PostgreSQL** for persistent production data:
 
 1. **Database (Neon Free PostgreSQL):**
-   - Create a free project at [neon.tech](https://neon.tech) and copy the PostgreSQL `DATABASE_URL`.
-2. **Backend (Render Free Web Service):**
-   - Connect your GitHub repository on [render.com](https://render.com) with **Root Directory** set to `backend` (or deploy using [render.yaml](render.yaml)).
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - **Environment Variables:**
+   - Create a free project at [neon.tech](https://neon.tech) and copy the **pooled** PostgreSQL `DATABASE_URL`.
+2. **Vercel Single-Project Deployment:**
+   - Import the GitHub repository on [vercel.com](https://vercel.com) (keep Root Directory as `./`).
+   - [vercel.json](vercel.json) automatically builds `frontend/` into `frontend/dist`, routes `/api/*` to [api/index.py](api/index.py), and serves the React SPA for all other paths.
+   - Add one **Environment Variable** in Vercel:
      - `DATABASE_URL` = your Neon PostgreSQL connection string
-     - `ALLOWED_ORIGINS` = your deployed Vercel URL (e.g., `https://your-app.vercel.app`)
-3. **Frontend (Vercel):**
-   - Import the same GitHub repository on [vercel.com](https://vercel.com) with **Root Directory** set to `frontend` and **Framework Preset** `Vite`.
-   - **Environment Variable:**
-     - `VITE_API_BASE_URL` = `https://<your-render-service>.onrender.com/api`
+   - Leave `VITE_API_BASE_URL` unset so the frontend uses same-origin `/api/*` requests cleanly.
 
 ---
 

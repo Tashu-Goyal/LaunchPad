@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = BASE_DIR / "launchpad.db"
@@ -27,13 +28,17 @@ def normalize_database_url(raw_url: str | None) -> str:
 
 DATABASE_URL = normalize_database_url(os.getenv("DATABASE_URL"))
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
+IS_SERVERLESS = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
-connect_args = {"check_same_thread": False} if IS_SQLITE else {}
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=not IS_SQLITE,
-)
+engine_kwargs: dict[str, object] = {}
+if IS_SQLITE:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+elif IS_SERVERLESS:
+    engine_kwargs["poolclass"] = NullPool
+else:
+    engine_kwargs["pool_pre_ping"] = True
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 
 @event.listens_for(Engine, "connect")

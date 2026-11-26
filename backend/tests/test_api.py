@@ -278,3 +278,19 @@ def test_production_config_helpers() -> None:
     assert "http://localhost:5173" in origins
     assert "https://launchpad-ui.vercel.app" in origins
     assert "https://custom.example.com" in origins
+
+
+def test_vercel_entrypoint_exports_fastapi_app() -> None:
+    import importlib.util
+
+    entrypoint = Path(__file__).resolve().parents[2] / "api" / "index.py"
+    spec = importlib.util.spec_from_file_location("vercel_api_index", entrypoint)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert hasattr(module, "app")
+    with TestClient(module.app) as vercel_client:
+        health = vercel_client.get("/api/health")
+        assert health.status_code == 200
+        assert health.json() == {"status": "ok"}
